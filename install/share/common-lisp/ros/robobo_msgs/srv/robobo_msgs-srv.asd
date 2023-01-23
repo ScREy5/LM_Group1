@@ -1,0 +1,26 @@
+
+(cl:in-package :asdf)
+
+(defsystem "robobo_msgs-srv"
+  :depends-on (:roslisp-msg-protocol :roslisp-utils :std_msgs-msg
+)
+  :components ((:file "_package")
+    (:file "MovePanTilt" :depends-on ("_package_MovePanTilt"))
+    (:file "_package_MovePanTilt" :depends-on ("_package"))
+    (:file "MoveWheels" :depends-on ("_package_MoveWheels"))
+    (:file "_package_MoveWheels" :depends-on ("_package"))
+    (:file "PlaySound" :depends-on ("_package_PlaySound"))
+    (:file "_package_PlaySound" :depends-on ("_package"))
+    (:file "ResetWheels" :depends-on ("_package_ResetWheels"))
+    (:file "_package_ResetWheels" :depends-on ("_package"))
+    (:file "SetCamera" :depends-on ("_package_SetCamera"))
+    (:file "_package_SetCamera" :depends-on ("_package"))
+    (:file "SetEmotion" :depends-on ("_package_SetEmotion"))
+    (:file "_package_SetEmotion" :depends-on ("_package"))
+    (:file "SetLed" :depends-on ("_package_SetLed"))
+    (:file "_package_SetLed" :depends-on ("_package"))
+    (:file "SetSensorFrequency" :depends-on ("_package_SetSensorFrequency"))
+    (:file "_package_SetSensorFrequency" :depends-on ("_package"))
+    (:file "Talk" :depends-on ("_package_Talk"))
+    (:file "_package_Talk" :depends-on ("_package"))
+  ))
