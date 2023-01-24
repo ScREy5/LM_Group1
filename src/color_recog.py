@@ -46,6 +46,9 @@ def get_green_coord(path):
         if moments["m00"] != 0:
             center_x = int(moments["m10"] / moments["m00"])
             center_y = int(moments["m01"] / moments["m00"])
+    else:
+        center_x = 0
+        center_y = 0
 
     # Show the original image and the mask
     # cv2.imshow('Original Image', frame)

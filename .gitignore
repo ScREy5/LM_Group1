@@ -3,6 +3,10 @@ __pycache__/
 *.py[cod]
 *$py.class
 
+#Testing/training outputs
+*.png
+src/testing_results_task2/
+src/testing_results_task1/
 # C extensions
 *.so
 

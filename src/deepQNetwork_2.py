@@ -7,7 +7,9 @@ from numpy import inf
 
 import torch
 from collections import namedtuple
-from src.architecture import DQN, ReplayMemory
+from architecture import DQN, ReplayMemory
+import color_recog
+import cv2
 import random
 import math
 import matplotlib.pyplot as plt
@@ -31,7 +33,6 @@ def turn_robobo(robo, repetition = 0, inverse = False, rotation_speed = 11, rota
     for i in range(repetition):
         robo.move(left, right, rotation_length)
 
-# TODO Add no_training value argument
 def select_action(state, policy_network):
     # Will have to be changed
     global STEPS
@@ -88,7 +89,6 @@ def plot_rewards(rewards_list, show_result=False):
 
     plt.pause(0.001)  # pause a bit so that plots are updated
 
-# TODO Toggle optimization on/off
 def optimize_model(memory, policy_network, target_network, optimizer):
     if len(memory) < BATCH_SIZE:
         return
@@ -121,6 +121,24 @@ def optimize_model(memory, policy_network, target_network, optimizer):
     torch.nn.utils.clip_grad_value_(policy_network.parameters(), 100)
     optimizer.step()
 
+
+def read_input(rob):
+    if simulation:
+        X_input = np.log(np.array(rob.read_irs())) / -10
+    else:
+        X_input = np.log(np.array(rob.read_irs())) / 10
+    X_input[X_input == -inf] = 0
+    X_input[X_input == inf] = 0
+    return X_input
+
+def get_image_values(rob):
+    # Following code gets an image from the camera
+    image = rob.get_image_front()
+    # IMPORTANT! `image` returned by the simulator is BGR, not RGB
+    cv2.imwrite("afterstep_picture.png", image)
+    green_pixel_ratio, center_x, center_y = color_recog.get_green_coord("afterstep_picture.png")
+    return green_pixel_ratio, center_x, center_y
+
 def environment_step_task1(rob, action, prev_reward):
     X_input = np.log(np.array(rob.read_irs())) / 10
     X_input[X_input == -inf] = 0
@@ -151,6 +169,43 @@ def environment_step_task1(rob, action, prev_reward):
         truncated = True
 
     return X_input, reward, done, truncated
+
+
+def environment_step_task2(rob, action, green_ratio):
+    global FOOD_CONSUMED
+    if action == 0 or action == 2:
+        reward = -1
+        X_input = read_input(rob)
+        new_green_ratio, centerx, centery = get_image_values(rob)
+        output = np.append(X_input, [new_green_ratio, centerx, centery])
+        inverse = False if action == 0 else True
+        turn_robobo(rob, 1, inverse)
+        done = False
+        truncated = True
+    else:
+        reward = -1
+        rob.move(10, 10, 1000)
+        # Check if ratio increased
+        X_input = read_input(rob)
+        new_green_ratio, centerx, centery = get_image_values(rob)
+        output = np.append(X_input, [new_green_ratio, centerx, centery])
+        if new_green_ratio > green_ratio:
+            reward = -0.5 + new_green_ratio
+        # Else check if green ratio was big, as well as new ratio suddenly being smaller
+        elif green_ratio > 0.33 and new_green_ratio < green_ratio:
+            reward = 100
+            FOOD_CONSUMED += 1
+        done = False
+        truncated = True
+
+    if X_input.max() >= 0.49 and green_ratio < 0.33:
+        reward = -1000
+        done = False
+        truncated = True
+
+    if FOOD_CONSUMED >= MAX_FOOD:
+        done = True
+    return output, reward, done, truncated
 
 # Replace args with arg reader
 def main():
@@ -191,17 +246,32 @@ def main():
             X_input = np.log(np.array(rob.read_irs())) / 10
         X_input[X_input == -inf] = 0
         X_input[X_input == inf] = 0
-        state = torch.tensor(X_input, dtype=torch.float32).unsqueeze(0)
+        if task == 1:
+            state = torch.tensor(X_input, dtype=torch.float32).unsqueeze(0)
+        if task == 2:
+            new_green_ratio, centerx, centery = get_image_values(rob)
+            state = torch.tensor(np.append(X_input, [new_green_ratio, centerx, centery]), dtype=torch.float32).unsqueeze(0)
         prev_reward = 0
         reward_total = 0
         actions_taken = []
+        global FOOD_CONSUMED
+        FOOD_CONSUMED = 0
         for t in range(steps_max):
             action = select_action(state, policy_network)
             actions_taken.append(action.item())
-            observation, reward, terminated, truncated = environment_step_task1(rob, action.item(), prev_reward)
-            reward = torch.tensor([reward])
-            prev_reward = reward.item()
-            reward_total += reward.item()
+            if task == 1:
+                observation, reward, terminated, truncated = environment_step_task1(rob, action.item(), prev_reward)
+                reward = torch.tensor([reward])
+                prev_reward = reward.item()
+                reward_total += reward.item()
+            elif task == 2:
+                # Inefficient, takes photo multiple times instead of once
+                green_ratio, centerx, centery = get_image_values(rob)
+                observation, reward, terminated, truncated = environment_step_task2(rob, action.item(), green_ratio)
+                reward = torch.tensor([reward])
+                reward_total += reward.item()
+            else:
+                continue
             if terminated and not simulation:
                 next_state = None
             else:
@@ -271,25 +341,25 @@ if __name__ == "__main__":
     # Number of episodes
     NUM_EPISODES = 500
     # Maximum number of steps
-    steps_max = 1000
+    steps_max = 250
     # How often will the model be saved (in episode number)
     checkpoint = 50
     # Will actions taken be saved as well
     save_action = False
 
     # Save location of target network during training
-    path_target_network = "testing_results_task1/target_network_task1_episode_"
-    path_policy_network = "testing_results_task1/policy_network_task1_episode_"
-    path_actions_taken = "testing_results_task1/action_list"
+    path_target_network = "testing_results_task2/target_network_task2_episode_"
+    path_policy_network = "testing_results_task2/policy_network_task2_episode_"
+    path_actions_taken = "testing_results_task2/action_list"
     # Definition of DQN model
-    n_observations = 8
+    n_observations = 11
     n_actions = 3
     n_of_nodes = 120
 
     # Definition of epsilon greedy values
     EPS_START = 0.9
     EPS_END = 0.05
-    EPS_DECAY = 1500
+    EPS_DECAY = 2500
 
     # Optimization values
     BATCH_SIZE = 128
@@ -299,5 +369,8 @@ if __name__ == "__main__":
 
     # Total steps taken
     STEPS = 0
+    task = 2
+    FOOD_CONSUMED = 0
+    MAX_FOOD = 7
 
     main()
