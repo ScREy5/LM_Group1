@@ -5,8 +5,7 @@ __pycache__/
 
 #Testing/training outputs
 *.png
-src/testing_results_task2/
-src/testing_results_task1/
+src/testing_results_task*/
 # C extensions
 *.so
 

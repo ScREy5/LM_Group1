@@ -198,8 +198,8 @@ def environment_step_task2(rob, action, green_ratio):
         done = False
         truncated = True
 
-    if X_input.max() >= 0.49 and green_ratio < 0.33:
-        reward = -1000
+    if X_input.max() >= 0.4 and green_ratio < 0.33:
+        reward = -500
         done = False
         truncated = True
 
@@ -239,6 +239,9 @@ def main():
 
     for episode in range(NUM_EPISODES):
         print(f"Starting simulation #{episode}")
+        # Set phone tilt to right value
+        rob.set_phone_tilt(107.7, 50)
+        # IMPORTANT! `image` returned by the simulator is BGR, not RGB
         if simulation:
             rob.play_simulation()
             X_input = np.log(np.array(rob.read_irs())) / -10
@@ -268,6 +271,7 @@ def main():
                 # Inefficient, takes photo multiple times instead of once
                 green_ratio, centerx, centery = get_image_values(rob)
                 observation, reward, terminated, truncated = environment_step_task2(rob, action.item(), green_ratio)
+                reward += -(t/steps_max)
                 reward = torch.tensor([reward])
                 reward_total += reward.item()
             else:
@@ -343,7 +347,7 @@ if __name__ == "__main__":
     # Maximum number of steps
     steps_max = 250
     # How often will the model be saved (in episode number)
-    checkpoint = 50
+    checkpoint = 10
     # Will actions taken be saved as well
     save_action = False
 
