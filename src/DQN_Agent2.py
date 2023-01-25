@@ -179,6 +179,7 @@ class DDQNAgent:
         self.discount_rate = discount_rate
         self.learning_rate = lr
         self.buffer_size = buffer_size
+        self.losses = []
 
         if not cold_boot:
             self.replay_memory = ExperienceReplay(self.env, self.buffer_size, min_replay_size)
@@ -264,6 +265,7 @@ class DDQNAgent:
         # Loss, here we take the huber loss!
 
         loss = F.smooth_l1_loss(action_q_values, targets)
+        self.losses.append(loss.item())
 
         # Uncomment the following code to use the MSE loss instead!
         # loss = F.mse_loss(action_q_values, targets)
@@ -297,7 +299,7 @@ class DDQNAgent:
         print("Loaded successfully")
 
 
-def training_loop(env, agent, max_epochs, target_=False, batch_size = 1, auto_save = False, cont = None, update_freq = 25):
+def training_loop(env, agent, max_epochs, target_=False, batch_size = 1, auto_save = False, cont = None, update_freq = 25, verbose = False):
     '''
     Params:
     env = name of the environment that the agent needs to play
@@ -327,12 +329,13 @@ def training_loop(env, agent, max_epochs, target_=False, batch_size = 1, auto_sa
 
     for epoch in range(start_epoch, max_epochs):
         done = False
+        agent.losses = []
         while not done:
             # print(obs)
             action, epsilon = agent.choose_action(all_steps, obs)
 
             new_obs, rew, terminated = env.step(action)
-
+            if verbose : print(rew)
 
             done = terminated
             transition = (obs, action, rew, done, new_obs)
@@ -355,6 +358,7 @@ def training_loop(env, agent, max_epochs, target_=False, batch_size = 1, auto_sa
         # Print some output
         print(20 * '--')
         print('Episode', epoch+1, 'All steps', all_steps)
+        print("Avg loss", np.average(agent.losses))
         print('Timesteps', env.time)
         print('Epsilon', epsilon)
         print('Episode Rew', episode_reward)

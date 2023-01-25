@@ -38,7 +38,7 @@ class Environment():
         vrep.simxSetBooleanParameter(self.rob._clientID, vrep.sim_boolparam_display_enabled, self.rendering,
                                          vrep.simx_opmode_oneshot)
         self.rob.play_simulation()
-        self.rob.set_phone_tilt(107.8, 50)
+        self.rob.set_phone_tilt(107.7, 50)
         self.time = 0
         self.food = 0
         self.last_green = 0
@@ -68,18 +68,20 @@ class Environment():
             last_action = reversed_actions[0] #get last action
 
             if last_action == 1 and green > self.last_green: #if straight and closer
-                reward = -1+green
-                # self.got_closer = True
+                reward = -0.5+green
+                self.got_closer = True
             elif last_action == 1 and self.rob.collected_food() > self.food: #if straight and got food
                 reward = 100
             elif last_action == 1:
                 reward = -2
+                reward -= np.sum(ir)
             else : #if turned
                 reward = -1
+                reward -= np.sum(ir)
             #Experimental
-            # if self.got_closer and green > 0.1:
-            #     reward += 1
-            #     self.got_closer = False
+            if self.got_closer and last_action == 1 and green > 0.1:
+                reward += 1
+                self.got_closer = False
 
         if self.time == 300 or self.food == 7:
             self.terminated = True
@@ -144,7 +146,7 @@ def train(env,path_to_save,path_to_load = None):
         # End value (lowest value) of epsilon
     epsilon_end = 0.05
         # Discount rate
-    discount_rate = 0.99
+    discount_rate = 0.95
         # That is the sample that we consider to update our algorithm each step
     batch_size = 32
         #Maximum Episodes
@@ -153,7 +155,7 @@ def train(env,path_to_save,path_to_load = None):
         # Maximum number of transitions that we store in the buffer
     buffer_size = 200
         # Minimum number of transitions that we need to initialize
-    min_replay_size = 50
+    min_replay_size = 200
         # Decay period until epsilon start -> epsilon end in steps
     epsilon_decay = 1500
         # Learning_rate
@@ -161,7 +163,7 @@ def train(env,path_to_save,path_to_load = None):
         # Update frequency of the target network in steps
     update_freq = 25
         # Autosaving frequency int num (set to None if you don't want to save)
-    auto_save = 1
+    auto_save = 10
 
 
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
@@ -181,14 +183,12 @@ def validate(env,path_to_model,path_to_save):
 
     #Placeholders needed for agent
     discount_rate = 0.99
-    batch_size = 32
     buffer_size = 300
     epsilon_start = 1.0
     epsilon_end = 0.05
     epsilon_decay = 400
-    max_episodes = 500
     lr = 0.001
-    min_replay_size = 100
+    min_replay_size = 200
 
 
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
@@ -198,28 +198,36 @@ def validate(env,path_to_model,path_to_save):
     dagent.load(path_to_model,device)
     terminated = False
     obs = env.reset()
+
+    all_actions = []
+    collected_foods = []
+
     while not terminated:
         action = dagent.choose_action(0, obs, True)[0]
         new_obs, rew, terminated = env.step(action)
         obs = new_obs
+        all_actions.append(action)
+        collected_foods.append(env.rob.collected_foods())
 
     if path_to_save != None:
         if not os.path.exists(path_to_save):
             os.makedirs(path_to_save)
-        np.savetxt(path_to_save + "val_dq_.txt", env.past_actions)
+        np.savetxt(path_to_save + "val_act.txt", all_actions)
+        np.savetxt(path_to_save + "val_food.txt", collected_foods)
 
 
 def main():
     signal.signal(signal.SIGINT, terminate_program)
     rendering = True
-    rob = robobo.SimulationRobobo("").connect(address='145.108.232.183', port=19997, rendering=rendering)  # local IP needed
+    rob = robobo.SimulationRobobo("").connect(address='192.168.1.142', port=19997, rendering=rendering)  # local IP needed
     env = Environment(only_front=False,rob = rob, rendering=rendering)
     rob.play_simulation()
-    rob.set_phone_tilt(107.8, 50)
+    rob.set_phone_tilt(107.7, 50)
 
     """ This Segment is for playing and testing in sim!"""
     # while True:
-        # print(get_image_values(rob))
+    #     print(get_image_values(rob))
+    #     time.sleep(1)
         # print(env.get_state())
         # quit()
     #     rob.move(20,20,1000)
@@ -234,7 +242,7 @@ def main():
 
     """ Actual Training """
     train(env,"logs/task2/agent2/", path_to_load=None)
-    # validate(env,"models/task2_wednesday/agent2/",None)
+    # validate(env,"logs/task2/agent2/",None)
 
 
 
