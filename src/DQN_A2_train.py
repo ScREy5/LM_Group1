@@ -207,7 +207,7 @@ def validate(env,path_to_model,path_to_save):
         new_obs, rew, terminated = env.step(action)
         obs = new_obs
         all_actions.append(action)
-        collected_foods.append(env.rob.collected_foods())
+        collected_foods.append(env.rob.collected_food())
 
     if path_to_save != None:
         if not os.path.exists(path_to_save):
