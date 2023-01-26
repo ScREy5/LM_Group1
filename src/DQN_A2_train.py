@@ -241,8 +241,13 @@ def main():
     # print(get_image_values(rob))
 
     """ Actual Training """
-    train(env,"logs/task2/agent2/", path_to_load=None)
-    # validate(env,"logs/task2/agent2/",None)
+    # train(env,"logs/task2/agent2/", path_to_load=None)
+
+    unique_id = "Gary" #so we don't save at the same place
+    arena ="Train" #Train or Val1/Val2/Val3/Val4
+
+    for run in range(10):
+        validate(env,"models/task2_wed_night1/",f"logs/task2/validation_runs/{unique_id}/{arena}/run_{run+1}_")
 
 
 
