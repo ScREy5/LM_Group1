@@ -86,10 +86,10 @@ def demo(env,rob,path_to_model):
     prev_ir = ir
     obs = np.append(ir,cam)
     while True:
-        print(ir,"\n",cam)
+        # print(ir,"\n",cam)
         action = dagent.choose_action(0, obs, True)[0]
         take_action(action,rob)
-        new_obs, rew, terminated = env.step(action)
+        new_obs = env.get_state()
 
         ir = new_obs[:8]  # RL hack
         if np.equal(ir, prev_ir).all():
@@ -126,7 +126,7 @@ def main():
 
     # print(get_image_values(rob))
 
-    demo(env,rob,path_to_model="src/logs/task2/agent2/")
+    demo(env,rob,path_to_model="src/models/task2_wed_night1/")
 
 
 
