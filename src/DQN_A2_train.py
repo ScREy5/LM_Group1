@@ -182,43 +182,42 @@ def train(env,path_to_save,path_to_load = None):
 def validate(env,path_to_model,path_to_save):
 
 
-    for run in range(10):
-        #Placeholders needed for agent
-        discount_rate = 0.99
-        buffer_size = 300
-        epsilon_start = 1.0
-        epsilon_end = 0.05
-        epsilon_decay = 400
-        lr = 0.001
-        min_replay_size = 200
+    #Placeholders needed for agent
+    discount_rate = 0.99
+    buffer_size = 300
+    epsilon_start = 1.0
+    epsilon_end = 0.05
+    epsilon_decay = 400
+    lr = 0.001
+    min_replay_size = 200
 
 
-        device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
-        dagent = DDQNAgent(env, device, epsilon_decay, epsilon_start, epsilon_end, discount_rate, lr, buffer_size,min_replay_size,
-                           cold_boot=True)
-        dagent.load(path_to_model,device)
-        terminated = False
-        obs = env.reset()
+    dagent = DDQNAgent(env, device, epsilon_decay, epsilon_start, epsilon_end, discount_rate, lr, buffer_size,min_replay_size,
+                       cold_boot=True)
+    dagent.load(path_to_model,device)
+    terminated = False
+    obs = env.reset()
 
-        all_actions = []
-        collected_foods = []
-        all_rewards = []
+    all_actions = []
+    collected_foods = []
+    all_rewards = []
 
-        while not terminated:
-            action = dagent.choose_action(0, obs, True)[0]
-            new_obs, rew, terminated = env.step(action)
-            obs = new_obs
-            all_actions.append(action)
-            collected_foods.append(env.rob.collected_food())
-            all_rewards.append(rew)
+    while not terminated:
+        action = dagent.choose_action(0, obs, True)[0]
+        new_obs, rew, terminated = env.step(action)
+        obs = new_obs
+        all_actions.append(action)
+        collected_foods.append(env.rob.collected_food())
+        all_rewards.append(rew)
 
-        if path_to_save != None:
-            if not os.path.exists(path_to_save):
-                os.makedirs(path_to_save)
-            np.savetxt(path_to_save + f"run_{run+1}_val_act.txt", all_actions)
-            np.savetxt(path_to_save + f"run_{run+1}_val_food.txt", collected_foods)
-            np.savetxt(path_to_save + f"run_{run+1}_val_rew.txt", all_rewards)
+    if path_to_save != None:
+        if not os.path.exists(path_to_save):
+            os.makedirs(path_to_save)
+        np.savetxt(path_to_save + f"run_{run+1}_val_act.txt", all_actions)
+        np.savetxt(path_to_save + f"run_{run+1}_val_food.txt", collected_foods)
+        np.savetxt(path_to_save + f"run_{run+1}_val_rew.txt", all_rewards)
 
 
 def main():
@@ -251,9 +250,9 @@ def main():
     unique_id = "Training" #so we don't save at the same place
     arena ="Train" #Train or Val1/Val2/Val3/Val4
 
-    checkpoints = [0, 10, 20, 30, 40, 50, 60, 70, 80, 90]
-    for checkpoint in checkpoints:
-        validate(env,f"models/task2_wed_night1/backup/autosave_{checkpoint}/", f"logs/task2/validation_runs/{unique_id}/{arena}_{checkpoint}/")
+    # checkpoints = [0, 10, 20, 30, 40, 50, 60, 70, 80, 90]
+    # for checkpoint in checkpoints:
+    validate(env,f"models/task2_wed_night1/", None)
 
 
 

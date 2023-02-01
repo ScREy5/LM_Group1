@@ -30,6 +30,7 @@ class Environment():
         self.got_red = False
         self.last_green = 0
         self.last_red = 0
+        # self.turn_counter = 0
 
     def reset(self):
         # pause the simulation and read the collected food
@@ -41,6 +42,7 @@ class Environment():
         vrep.simxSetBooleanParameter(self.rob._clientID, vrep.sim_boolparam_display_enabled, self.rendering,
                                          vrep.simx_opmode_oneshot)
         self.rob.play_simulation()
+        vrep.simxSetIntegerParameter(self.rob._clientID, vrep.sim_intparam_speedmodifier, 6, vrep.simx_opmode_oneshot)
         self.rob.set_phone_tilt(107.7, 50)
         self.time = 0
         self.last_green = 0
@@ -56,7 +58,7 @@ class Environment():
             obs = continuous_state(read_ir(self.rob))[3:]
         else:
             obs = continuous_state(read_ir(self.rob))
-        obs = np.append(obs,np.array(get_green_values(self.rob)))
+        obs = np.append(obs, np.array(get_green_values(self.rob)))
         obs = np.append(obs, np.array(get_red_values(self.rob)))
         return obs
 
@@ -72,16 +74,18 @@ class Environment():
         back = np.array(ir[:2])
         last_action = self.past_actions[-1]
         reward = 200
+        # Collision check can stay
         if np.any([back>=0.31]) or np.any([f_rl>=0.235]) or np.any([f_rrll>=0.21]) and not self.got_closer: #collission check
             self.terminated = True
-            reward = -300
+            reward = -500
+
         else:
             if not self.got_red:
-                if self.got_closer and self.last_red > red:
+                if self.got_closer and self.last_red > red != 0 and last_action == 1:
                     self.got_red = True
+                    self.got_closer = False
                     reward = 100
-                    self.terminated = True
-                if last_action == 1 and red > self.last_red: #if straight and closer
+                elif last_action == 1 and red > self.last_red: #if straight and closer
                     reward = 1.5 - abs(64-red_cent)/128*red*2
                     self.got_closer = True
                 elif last_action != 1 and red > self.last_red:
@@ -90,28 +94,52 @@ class Environment():
                 elif last_action == 1 and not red > self.last_red:
                     reward = -5
                     self.got_closer = False
-                elif last_action != 1 and not red > self.last_red:
+                else:
                     reward = -2
                     self.got_closer = False
-
-
-            # else : #if turned
-            #     reward = -1
-            #     reward -= np.sum(ir)
+            else:
+                if not red > 0:
+                    self.got_red = False
+                    reward = -100
+                elif self.got_closer and self.last_green > green != 0  and last_action == 1:
+                    self.terminated = True
+                    reward = 500
+                elif last_action == 1:
+                    # self.turn_counter = 0
+                    if green > self.last_green:#if straight and closer
+                        reward = 1.5 - abs(64-green_cent)/128*green*2
+                        self.got_closer = True
+                    else:
+                        reward = -1
+                        self.got_closer = False
+                else:
+                    # self.turn_counter += 1
+                    if green > self.last_green:
+                        reward = 1 - abs(64-green_cent)/128
+                        self.got_closer = False
+                    else:
+                        reward = -1
+                        self.got_closer = False
 
 
         #self.rob.base_detects_food()
-        if self.time == 100:
+        if self.time == 150:
             self.terminated = True
 
         self.last_red = red
         self.last_green = green
         return reward
 
+    # TODO Steps here
     def step(self,action):
         take_action(action,self.rob)
         self.time += 1
         self.past_actions.append(action)
+        # # Prevent losing box:
+        # if self.turn_counter >= 4:
+        #     take_action(1, self.rob)
+        #     self.time += 1
+        #     self.past_actions.append(1)
         state = self.get_state()
         reward = self.get_reward(state)
         return state, reward, self.terminated
@@ -189,7 +217,7 @@ def train(env,path_to_save,path_to_load = None):
         # Update frequency of the target network in steps
     update_freq = 25
         # Autosaving frequency int num (set to None if you don't want to save)
-    auto_save = None
+    auto_save = 10
 
 
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
@@ -239,7 +267,7 @@ def validate(env,path_to_model,path_to_save):
         collected_foods = []
         all_rewards = []
 
-        while not terminated:
+        while True:
             action = dagent.choose_action(0, obs, True)[0]
             new_obs, rew, terminated = env.step(action)
             obs = new_obs
@@ -261,7 +289,7 @@ def main():
     rob = robobo.SimulationRobobo("").connect(address='127.0.0.1', port=19997, rendering=rendering)  # local IP needed
     env = Environment(only_front=False,rob = rob, rendering=rendering)
     rob.play_simulation()
-    rob.set_phone_tilt(107.8, 50)
+    rob.set_phone_tilt(107.7, 50)
 
     """ This Segment is for playing and testing in sim!"""
     # while True:
@@ -288,14 +316,14 @@ def main():
     # print(get_image_values(rob))
 
     """ Actual Training """
-    train(env,"logs/task3/agent1/", path_to_load=None)
+    # train(env,"logs/task3/agent3_v2/", path_to_load=None)
 
     # unique_id = "Training" #so we don't save at the same place
     # arena ="Val4" #Train or Val1/Val2/Val3/Val4
     #
     # checkpoints = [0, 10, 20, 30, 40, 50, 60, 70, 80, 90]
     # for checkpoint in checkpoints:
-    #     validate(env,f"models/task2_wed_night1/backup/autosave_{checkpoint}/", f"logs/task2/validation_runs/{unique_id}/{arena}_{checkpoint}/")
+    validate(env,f"logs/task3/agent3_v2/", None)
 
 
 

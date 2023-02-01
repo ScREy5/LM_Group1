@@ -332,6 +332,31 @@ def training_loop(env, agent, max_epochs, target_=False, batch_size = 1, auto_sa
         agent.losses = []
         while not done:
             # print(obs)
+            # 4 seems to be the "magic" number of turns that messes up box
+
+
+            # This works for setting camera angles
+            #     env.rob.set_phone_tilt(107.8, 50)
+            #     env.rob.set_phone_tilt(108.1, 50)
+            #      Angles work ok. Maybe 108.2 better
+            #     Maybe punish turning? The more it turns the more its punished
+
+            # counter = 0
+            # while counter < 100:
+            #     env.rob.set_phone_tilt(107.8, 50)
+                # Following code gets an image from the camera
+                # image = env.rob.get_image_front()
+                # IMPORTANT! `image` returned by the simulator is BGR, not RGB
+                # cv2.imwrite("test_pictures_1.png", image)
+                # counter += 1
+                # env.rob.set_phone_tilt(108.2, 50)
+                # Following code gets an image from the camera
+                # image = env.rob.get_image_front()
+                # IMPORTANT! `image` returned by the simulator is BGR, not RGB
+                # cv2.imwrite("test_pictures_2.png", image)
+                # counter += 1
+                # if counter % 4 == 0 :
+                #     env.step(1)
             action, epsilon = agent.choose_action(all_steps, obs)
 
             new_obs, rew, terminated = env.step(action)
@@ -378,8 +403,8 @@ def training_loop(env, agent, max_epochs, target_=False, batch_size = 1, auto_sa
 
         if auto_save != None :
             if epoch % auto_save == 0:
-                agent.save(f"logs/task3/agent1/backup/autosave_{epoch}/")
-                np.savetxt(f"logs/task3/agent1/backup/autosave_{epoch}/all_steps.txt", np.array([all_steps]))
+                agent.save(f"logs/task3/agent3/backup/autosave_{epoch}/")
+                np.savetxt(f"logs/task3/agent3/backup/autosave_{epoch}/all_steps.txt", np.array([all_steps]))
 
 
 
