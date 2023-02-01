@@ -44,8 +44,11 @@ class DQN(nn.Module):
         self.dense4 = nn.Linear(in_features=16, out_features=action_space)
 
         # Here we use ADAM, but you could also think of other algorithms such as RMSprob
-        self.optimizer = optim.Adam(self.parameters(), lr=learning_rate)
+        self.optimizer = optim.AdamW(self.parameters(), lr=learning_rate)
 
+    def set_lr(self,lr):
+        for g in self.optimizer.param_groups:
+            g['lr'] = lr
     def forward(self, x):
         '''
         Params:
@@ -82,6 +85,7 @@ class ExperienceReplay:
         self.env = env
         self.min_replay_size = min_replay_size
         self.replay_buffer = deque(maxlen=buffer_size)
+        self.positive_buffer = deque(maxlen=buffer_size)
         self.reward_buffer = deque([], maxlen=100)
         self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
@@ -103,6 +107,8 @@ class ExperienceReplay:
 
             transition = (obs, action, rew, done, new_obs)
             self.replay_buffer.append(transition)
+            if rew > 0 :
+                self.positive_buffer.append(transition)
             obs = new_obs
 
             if done:
@@ -116,6 +122,9 @@ class ExperienceReplay:
         data = relevant data of a transition, i.e. action, new_obs, reward, done
         '''
         self.replay_buffer.append(data)
+        obs, action, rew, done, new_obs = data
+        if rew > 0:
+            self.positive_buffer.append(data)
 
     def sample(self, batch_size):
 
@@ -128,6 +137,36 @@ class ExperienceReplay:
         '''
 
         transitions = random.sample(self.replay_buffer, batch_size)
+
+        # Solution
+        observations = np.asarray([t[0] for t in transitions])
+        actions = np.asarray([t[1] for t in transitions])
+        rewards = np.asarray([t[2] for t in transitions])
+        dones = np.asarray([t[3] for t in transitions])
+        new_observations = np.asarray([t[4] for t in transitions])
+
+        # PyTorch needs these arrays as tensors!, don't forget to specify the device! (cpu / GPU)
+        observations_t = torch.as_tensor(observations, dtype=torch.float32, device=self.device)
+        actions_t = torch.as_tensor(actions, dtype=torch.int64, device=self.device).unsqueeze(-1)
+        rewards_t = torch.as_tensor(rewards, dtype=torch.float32, device=self.device).unsqueeze(-1)
+        dones_t = torch.as_tensor(dones, dtype=torch.float32, device=self.device).unsqueeze(-1)
+        new_observations_t = torch.as_tensor(new_observations, dtype=torch.float32, device=self.device)
+
+        return observations_t, actions_t, rewards_t, dones_t, new_observations_t
+
+    def sample_pos(self, batch_size):
+
+        '''
+        Params:
+        batch_size = number of transitions that will be sampled
+
+        Returns:
+        tensor of observations, actions, rewards, done (boolean) and next observation
+        '''
+
+        if batch_size > len(self.positive_buffer) :
+            batch_size = len(self.positive_buffer)
+        transitions = random.sample(self.positive_buffer, batch_size)
 
         # Solution
         observations = np.asarray([t[0] for t in transitions])
@@ -275,6 +314,41 @@ class DDQNAgent:
         loss.backward()
         self.online_network.optimizer.step()
 
+    def learn_pos(self, batch_size):
+
+        '''
+        Params:
+        batch_size = number of transitions that will be sampled
+        '''
+
+        observations_t, actions_t, rewards_t, dones_t, new_observations_t = self.replay_memory.sample_pos(batch_size)
+
+        # Compute targets, note that we use the same neural network to do both! This will be changed later!
+
+        target_q_values = self.target_network(new_observations_t)
+        max_target_q_values = target_q_values.max(dim=1, keepdim=True)[0]
+
+        targets = rewards_t + self.discount_rate * (1 - dones_t) * max_target_q_values
+
+        # Compute loss
+
+        q_values = self.online_network(observations_t)
+
+        action_q_values = torch.gather(input=q_values, dim=1, index=actions_t)
+
+        # Loss, here we take the huber loss!
+
+        loss = F.smooth_l1_loss(action_q_values, targets)
+        self.losses.append(loss.item())
+
+        # Uncomment the following code to use the MSE loss instead!
+        # loss = F.mse_loss(action_q_values, targets)
+
+        # Gradient descent to update the weights of the neural network
+        self.online_network.optimizer.zero_grad()
+        loss.backward()
+        self.online_network.optimizer.step()
+
     def update_target_network(self):
 
         '''
@@ -338,8 +412,9 @@ def training_loop(env, agent, max_epochs, target_=False, batch_size = 1, auto_sa
             if verbose :
                 # print("obs: ", obs)
                 print("rew: ", rew)
-                print("got closer?", env.got_closer)
+                # print("on base?", env.rob.base_detects_food())
                 print("got red?", env.got_red)
+                print("Q vals", agent.return_q_value(new_obs)[1])
 
             done = terminated
             transition = (obs, action, rew, done, new_obs)
@@ -349,7 +424,9 @@ def training_loop(env, agent, max_epochs, target_=False, batch_size = 1, auto_sa
             episode_reward += rew
 
             # Learn
-            agent.learn(batch_size)
+            agent.learn(batch_size//2)
+            # if epsilon >= agent.epsilon_end*1:
+            #     agent.learn_pos(batch_size//2)
             all_steps += 1
 
             # Update target network
@@ -358,6 +435,9 @@ def training_loop(env, agent, max_epochs, target_=False, batch_size = 1, auto_sa
                 target_update_frequency = update_freq
                 if all_steps % target_update_frequency == 0:
                     agent.update_target_network()
+
+        if epsilon == agent.epsilon_end:
+            agent.online_network.set_lr(agent.learning_rate/10)
 
         # Print some output
         print(20 * '--')

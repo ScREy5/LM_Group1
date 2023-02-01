@@ -70,8 +70,10 @@ class SimulationRobobo(Robobo):
 
         try:
             self._base = self._vrep_get_object_handle("Base_Proximity_sensor", vrep.simx_opmode_blocking)
+            self._food_detect = self._vrep_get_object_handle("Food_sensor", vrep.simx_opmode_blocking)
         except vrep.VrepApiError as _e:
             self._base = None
+            self._food_detect = None
 
         # read a first value in streaming mode
         self._vrep_read_proximity_sensor_ignore_error(self._IrFrontC)
@@ -361,4 +363,9 @@ class SimulationRobobo(Robobo):
     def base_detects_food(self):
         detection, _detection_point, _detected_handle, _detected_normal \
             = self._vrep_read_proximity_sensor(self._base, vrep.simx_opmode_buffer)
+        return bool(detection)
+
+    def grabbed_food(self):
+        detection, _detection_point, _detected_handle, _detected_normal \
+            = self._vrep_read_proximity_sensor(self._food_detect, vrep.simx_opmode_blocking)
         return bool(detection)

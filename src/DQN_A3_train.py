@@ -28,8 +28,10 @@ class Environment():
         self.food = 0
         self.got_closer = False
         self.got_red = False
+        self.got_green = False
         self.last_green = 0
         self.last_red = 0
+        self.red_trigger = False
 
     def reset(self):
         # pause the simulation and read the collected food
@@ -49,6 +51,8 @@ class Environment():
         self.past_actions = []
         self.got_closer = False
         self.got_red = False
+        self.got_green = False
+        self.red_trigger = False
         return self.get_state()
 
     def get_state(self):
@@ -61,46 +65,60 @@ class Environment():
         return obs
 
 
+
     def get_reward(self,state):
+        self.got_red = self.rob.grabbed_food()
         ir = state[:8]
         green = state[-6]
         green_cent = state[-5]
         red = state[-3]
+        if 0.00001 > red:
+            red = 0
         red_cent = state[-2]
         f_rl = np.array([ir[4],ir[6]])
         f_rrll = np.array([ir[3],ir[7]])
         back = np.array(ir[:2])
         last_action = self.past_actions[-1]
-        reward = 200
-        if np.any([back>=0.31]) or np.any([f_rl>=0.235]) or np.any([f_rrll>=0.21]) and not self.got_closer: #collission check
+        if np.any([back>=0.31]) or np.any([f_rl>=0.24]) or np.any([f_rrll>=0.22]): #collission check
             self.terminated = True
             reward = -300
         else:
             if not self.got_red:
-                if self.got_closer and self.last_red > red:
-                    self.got_red = True
+                if red > 0 :
+                    reward = -(abs(64-red_cent)/48)**2
+                    if 20 > abs(64-red_cent) and last_action == 1:
+                        reward += 3
+                else :
+                    if last_action == 1 and red == 0:
+                        reward = -3
+                    elif last_action != 1 and red == 0:
+                        reward = -2
+            else:
+                if not self.red_trigger:
                     reward = 100
-                    self.terminated = True
-                if last_action == 1 and red > self.last_red: #if straight and closer
-                    reward = 1.5 - abs(64-red_cent)/128*red*2
-                    self.got_closer = True
-                elif last_action != 1 and red > self.last_red:
-                    reward = 1 - abs(64-red_cent)/128
-                    self.got_closer = False
-                elif last_action == 1 and not red > self.last_red:
-                    reward = -5
-                    self.got_closer = False
-                elif last_action != 1 and not red > self.last_red:
-                    reward = -2
-                    self.got_closer = False
+                else:
+                    if not self.rob.base_detects_food():
+                        if green > 0:
+                            reward = -(abs(64 - green_cent) / 48) ** 2
+                            if 20 > abs(64 - green_cent) and last_action == 1:
+                                reward += 2
+                        else:
+                            if last_action == 1 and green == 0:
+                                reward = -3
+                            elif last_action != 1 and green == 0:
+                                reward = -2
+                    else :
+                        reward = 500
+                        self.terminated = True
 
 
-            # else : #if turned
-            #     reward = -1
-            #     reward -= np.sum(ir)
+
+        if self.got_red:
+            self.red_trigger = True
+        else:
+            self.red_trigger = False
 
 
-        #self.rob.base_detects_food()
         if self.time == 100:
             self.terminated = True
 
@@ -151,7 +169,7 @@ def go_turn_right(rob):
     rob.move(5,-5,550)
 
 def go_straight(rob):
-    rob.move(15,15,1500)
+    rob.move(15,15,1000)
 
 def take_action(action,rob):
     if action == 1:
@@ -172,7 +190,7 @@ def train(env,path_to_save,path_to_load = None):
         # End value (lowest value) of epsilon
     epsilon_end = 0.05
         # Discount rate
-    discount_rate = 0.99
+    discount_rate = 0.5
         # That is the sample that we consider to update our algorithm each step
     batch_size = 32
         #Maximum Episodes
@@ -183,22 +201,22 @@ def train(env,path_to_save,path_to_load = None):
         # Minimum number of transitions that we need to initialize
     min_replay_size = 100
         # Decay period until epsilon start -> epsilon end in steps
-    epsilon_decay = 1500
+    epsilon_decay = 1250
         # Learning_rate
     lr = 0.0001
         # Update frequency of the target network in steps
     update_freq = 25
         # Autosaving frequency int num (set to None if you don't want to save)
-    auto_save = None
+    auto_save = 5
 
 
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     dagent = DDQNAgent(env, device, epsilon_decay, epsilon_start, epsilon_end, discount_rate, lr, buffer_size, min_replay_size)
 
     if not path_to_load == None:
-        dagent.load(path_to_load)
+        dagent.load(path_to_load,device)
         steps_taken = np.loadtxt(path_to_load+"all_steps.txt")
-        status = [steps_taken,int(path_to_load[-2:])]
+        status = [steps_taken,int(path_to_load[-3:-1])]
     else:
         status = None
 
@@ -265,7 +283,9 @@ def main():
 
     """ This Segment is for playing and testing in sim!"""
     # while True:
-        # print(get_red_values(rob))
+    #     print(rob.grabbed_food())
+    #     print(rob.base_detects_food())
+    #     time.sleep(1)
         # print(read_ir(rob))
         # for _ in range(5):
         #     take_action(1,rob)
@@ -288,7 +308,7 @@ def main():
     # print(get_image_values(rob))
 
     """ Actual Training """
-    train(env,"logs/task3/agent1/", path_to_load=None)
+    train(env,"logs/task3/agent1/", path_to_load="logs/task3/agent1/backup/autosave_45/")
 
     # unique_id = "Training" #so we don't save at the same place
     # arena ="Val4" #Train or Val1/Val2/Val3/Val4
