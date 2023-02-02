@@ -16,12 +16,21 @@ import color_recog
 from DQN_A3_train import Environment
 
 
-def get_image_values(rob):
+
+def get_green_values(rob):
     # Following code gets an image from the camera
     image = rob.get_image_front()
     # IMPORTANT! `image` returned by the simulator is BGR, not RGB
     cv2.imwrite("afterstep_picture.png", image)
     green_pixel_ratio, center_x, center_y = color_recog.get_green_coord("afterstep_picture.png")
+    return green_pixel_ratio, center_x, center_y
+
+def get_red_values(rob):
+    # Following code gets an image from the camera
+    image = rob.get_image_front()
+    # IMPORTANT! `image` returned by the simulator is BGR, not RGB
+    cv2.imwrite("afterstep_picture.png", image)
+    green_pixel_ratio, center_x, center_y = color_recog.get_red_coord("afterstep_picture.png")
     return green_pixel_ratio, center_x, center_y
 def terminate_program(signal_number, frame):
     print("Ctrl-C received, terminating program")
@@ -36,14 +45,15 @@ def continuous_state(vals):
     vals[vals == np.inf] = 0
     return vals
 
-def go_turn_left(rob): #3sec = 45 deg
-    rob.move(-11,11,550)
+def go_turn_left(rob):
+    rob.move(-2,2,550)
 
 def go_turn_right(rob):
-    rob.move(11,-11,550)
+    rob.move(2,-2,550)
 
 def go_straight(rob):
-    rob.move(15,15,1500)
+    rob.move(15,15,1000)
+
 
 def take_action(action,rob):
     if action == 1:
@@ -82,11 +92,17 @@ def demo(env,rob,path_to_model):
     ir = obs[:8]
     cam = obs[8:]
     #
-    # cam[0] = cam[0]/1.2
+    cam[3] *= 4
+    cam[0] *= 4
+    cam[4] *= 3.75
+    cam[5] *= 5
+    cam[1] *= 3.75
+    cam[2] *= 5
     ir = ir/2
     prev_ir = ir
     obs = np.append(ir,cam)
     while True:
+        print(cam)
         # print(ir,"\n",cam)
         action = dagent.choose_action(0, obs, True)[0]
         take_action(action,rob)
@@ -98,7 +114,12 @@ def demo(env,rob,path_to_model):
         else :
             prev_ir = ir
         cam = new_obs[8:]
-        # cam[0] = cam[0] / 1.2
+        cam[3] *= 4
+        cam[0] *= 4
+        cam[4] *= 3.75
+        cam[5] *= 5
+        cam[1] *= 3.75
+        cam[2] *= 5
         ir = ir / 2
 
 
@@ -109,7 +130,7 @@ def demo(env,rob,path_to_model):
 def main():
     signal.signal(signal.SIGINT, terminate_program)
     rendering = True
-    rob = robobo.HardwareRobobo(camera=True).connect(address="10.15.2.53")
+    rob = robobo.HardwareRobobo(camera=True).connect(address="192.168.156.115")
     env = Environment(only_front=False, rob = rob, rendering=rendering)
     rob.set_phone_tilt(108, 50)
     # while True:
@@ -127,8 +148,8 @@ def main():
 
     # print(get_image_values(rob))
 
-    demo(env,rob,path_to_model="src/logs/task3/agent1/")
-    # demo(env,rob,path_to_model="src/models/task3/")
+    # demo(env,rob,path_to_model="src/models/")
+    demo(env,rob,path_to_model="src/logs/task3/agent3/")
 
 
 

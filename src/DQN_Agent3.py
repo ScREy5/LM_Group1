@@ -373,7 +373,7 @@ class DDQNAgent:
         print("Loaded successfully")
 
 
-def training_loop(env, agent, max_epochs, target_=False, batch_size = 1, auto_save = False, cont = None, update_freq = 25, verbose = False):
+def training_loop(env, agent, max_epochs, target_=False, batch_size = 1, auto_save = False, cont = None, update_freq = 25, verbose = False, auto_path=None):
     '''
     Params:
     env = name of the environment that the agent needs to play
@@ -437,7 +437,7 @@ def training_loop(env, agent, max_epochs, target_=False, batch_size = 1, auto_sa
                     agent.update_target_network()
 
         if epsilon == agent.epsilon_end:
-            agent.online_network.set_lr(agent.learning_rate/10)
+            agent.online_network.set_lr(agent.learning_rate/1)
 
         # Print some output
         print(20 * '--')
@@ -458,8 +458,8 @@ def training_loop(env, agent, max_epochs, target_=False, batch_size = 1, auto_sa
 
         if auto_save != None :
             if epoch % auto_save == 0:
-                agent.save(f"logs/task3/agent1/backup/autosave_{epoch}/")
-                np.savetxt(f"logs/task3/agent1/backup/autosave_{epoch}/all_steps.txt", np.array([all_steps]))
+                agent.save(f"{auto_path}backup/autosave_{epoch}/")
+                np.savetxt(f"{auto_path}backup/autosave_{epoch}/all_steps.txt", np.array([all_steps]))
 
 
 
