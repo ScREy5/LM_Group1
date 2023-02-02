@@ -403,8 +403,8 @@ def training_loop(env, agent, max_epochs, target_=False, batch_size = 1, auto_sa
 
         if auto_save != None :
             if epoch % auto_save == 0:
-                agent.save(f"logs/task3/agent3/backup/autosave_{epoch}/")
-                np.savetxt(f"logs/task3/agent3/backup/autosave_{epoch}/all_steps.txt", np.array([all_steps]))
+                agent.save(f"logs/task3/agent3_v5/backup/autosave_{epoch}/")
+                np.savetxt(f"logs/task3/agent3_v5/backup/autosave_{epoch}/all_steps.txt", np.array([all_steps]))
 
 
 

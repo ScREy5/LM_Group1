@@ -70,6 +70,7 @@ class Environment():
         red = state[-3]
         red_cent = state[-2]
         f_rl = np.array([ir[4],ir[6]])
+        f_c = np.array([ir[5]])
         f_rrll = np.array([ir[3],ir[7]])
         back = np.array(ir[:2])
         last_action = self.past_actions[-1]
@@ -96,13 +97,13 @@ class Environment():
                     reward = 1 - abs(64-red_cent)/128
                     self.got_closer = False
                 elif last_action == 1 and not red > self.last_red:
-                    reward = 0
+                    reward = -3
                     self.got_closer = False
                 else:
-                    reward = 0
+                    reward = -1
                     self.got_closer = False
             else:
-                if not red > 0:
+                if not f_c > 0.30:
                     self.got_red = False
                     reward = -100
                 elif self.got_closer and self.last_green > green != 0  and last_action == 1:
@@ -114,7 +115,7 @@ class Environment():
                         reward = 1.5 - abs(64-green_cent)/128*green*2
                         self.got_closer = True
                     else:
-                        reward = 0
+                        reward = -3
                         self.got_closer = False
                 else:
                     # self.turn_counter += 1
@@ -122,7 +123,7 @@ class Environment():
                         reward = 1 - abs(64-green_cent)/128
                         self.got_closer = False
                     else:
-                        reward = 0
+                        reward = -1
                         self.got_closer = False
 
 
@@ -145,6 +146,14 @@ class Environment():
         #     self.time += 1
         #     self.past_actions.append(1)
         state = self.get_state()
+        if not self.got_red:
+            state[-6] = 0
+            state[-5] = 0
+            state[-4] = 0
+        else:
+            state[-3] = 0
+            state[-2] = 0
+            state[-1] = 0
         reward = self.get_reward(state)
         return state, reward, self.terminated
 
@@ -320,7 +329,7 @@ def main():
     # print(get_image_values(rob))
 
     """ Actual Training """
-    train(env,"logs/task3/agent3_v4/", path_to_load=None)
+    train(env,"logs/task3/agent3_v5/", path_to_load=None)
 
     # unique_id = "Training" #so we don't save at the same place
     # arena ="Val4" #Train or Val1/Val2/Val3/Val4
